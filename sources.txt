@@ -1,0 +1,5 @@
+https://legacy.reactjs.org/docs/getting-started.html
+https://legacy.reactjs.org/tutorial/tutorial.html
+https://react.dev/blog/2023/03/16/introducing-react-dev
+https://nodejs.org/en
+https://nodejs.org/docs/latest/api/
