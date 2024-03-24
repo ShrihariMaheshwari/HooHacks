@@ -1,90 +1,64 @@
-import React, { useState, useEffect, useRef } from "react";
-import { copy, tick, loader, linkIcon } from "../assets";
-import { useLazyGetSummaryQuery } from "../services/article";
+import React, { useState } from "react";
+import { loader, linkIcon } from "../assets";
 
 const Demo = () => {
-  const [article, setArticle] = useState({
-    url: "",
-    summary: "",
-  });
-
-  const [allArticles, setAllArticles] = useState([]);
-  const [showRecommendedVideos, setShowRecommendedVideos] = useState(false);
-  const [summaryHeight, setSummaryHeight] = useState(0);
-  const [isSummaryLoaded, setIsSummaryLoaded] = useState(false);
-  const [isLoadingVideos, setIsLoadingVideos] = useState(false);
+  const [article, setArticle] = useState({ url: "" });
+  const [lectureNotes, setLectureNotes] = useState("");
+  const [suggestedVideos, setSuggestedVideos] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
 
-  const summaryRef = useRef(null);
-  const lectureNotesRef = useRef(null);
-
-  useEffect(() => {
-    if (summaryRef.current) {
-      setSummaryHeight(summaryRef.current.offsetHeight);
+  // Function to fetch suggested videos
+  const fetchSuggestedVideos = async () => {
+    try {
+      const response = await fetch(
+        "https://kaizen-backend.vercel.app/api/v1/video/suggest",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ url: article.url }),
+        }
+      );
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error("Failed to fetch suggested videos");
+      }
+      setSuggestedVideos(data); // Assuming the entire response is the array of videos
+    } catch (error) {
+      console.error("An error occurred:", error);
     }
-  }, [article.summary]);
-
-  const [getSummary, { error, isFetching }] = useLazyGetSummaryQuery();
-  const [copied, setCopied] = useState("");
-
-  useEffect(() => {
-    const articlesFromLocalStorage = JSON.parse(
-      localStorage.getItem("articles")
-    );
-
-    if (articlesFromLocalStorage) {
-      setAllArticles(articlesFromLocalStorage);
-    }
-  }, []);
-
-  const simulateVideoLoading = () => {
-    return new Promise((resolve) => setTimeout(resolve, 3000)); // 3 seconds timeout
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setIsLoading(true); // Start the single loading animation for the entire operation
+    setIsLoading(true); // Start the loading animation
 
     try {
-      // Create a promise for the summary data fetching
-      const summaryPromise = getSummary({ articleUrl: article.url }).unwrap();
-      // Create a promise for the timeout to simulate video loading
-      const timeoutPromise = simulateVideoLoading();
+      const response = await fetch(
+        "https://kaizen-backend.vercel.app/api/v1/video/upload",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ url: article.url }),
+        }
+      );
 
-      // Use Promise.all to wait for both promises to resolve
-      const [summaryData] = await Promise.all([summaryPromise, timeoutPromise]);
+      const data = await response.json();
 
-      // Process the summary data
-      if (summaryData?.summary) {
-        const newArticle = { ...article, summary: summaryData.summary };
-        const updatedAllArticles = [newArticle, ...allArticles];
-
-        setArticle(newArticle);
-        setAllArticles(updatedAllArticles);
-        localStorage.setItem("articles", JSON.stringify(updatedAllArticles));
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to fetch lecture notes");
       }
 
-      // After both promises have resolved, update the states to show content
-      setShowRecommendedVideos(true); // Show the recommended videos
+      setLectureNotes(data.notes); // Set the fetched notes
+      await fetchSuggestedVideos(); // Fetch suggested videos after fetching lecture notes
     } catch (error) {
       console.error("An error occurred:", error);
-      // Handle any errors here
     } finally {
-      setIsLoading(false); // Stop the loading animation for the entire operation
+      setIsLoading(false); // Stop the loading animation
     }
-  };
-  
-  useEffect(() => {
-    if (isSummaryLoaded && lectureNotesRef.current) {
-      lectureNotesRef.current.scrollIntoView({ behavior: "smooth" });
-      setIsSummaryLoaded(false);
-    }
-  }, [isSummaryLoaded]);
-
-  const handleCopy = (copyUrl) => {
-    setCopied(copyUrl);
-    navigator.clipboard.writeText(copyUrl);
-    setTimeout(() => setCopied(false), 3000);
   };
 
   return (
@@ -121,127 +95,57 @@ const Demo = () => {
             </button>
           </form>
         </div>
-
-        <div className="my-10 max-w-full flex justify-center items-center">
-          {isFetching ? (
-            <img
-              src={loader}
-              alt="loader"
-              className="w-20 h-20 object-contain"
-            />
-          ) : error ? (
-            <p className="font-inter font-bold text-black text-center">
-              Well, that wasn't supposed to happen...
-              <br />
-              <span className="font-satoshi font-normal text-gray-700">
-                {error?.data?.error}
-              </span>
-            </p>
-          ) : (
-            article.summary && (
-              <div
-                ref={lectureNotesRef}
-                className="flex flex-col gap-3 items-center w-full"
-              >
-                <h2 className="font-satoshi font-bold text-gray-600 text-xl text-center">
-                  Lectures <span className="blue_gradient">Notes</span>
-                </h2>
-                <div
-                  className="summary_box w-full"
-                  style={{ width: "100%" }}
-                  ref={summaryRef}
-                >
-                  <ul className="list-disc text-left pl-10">
-                    {article.summary
-                      .split(". ")
-                      .filter((sentence) => sentence.trim().length > 0)
-                      .map((sentence, index) => (
-                        <li
-                          key={index}
-                          className="font-inter font-medium text-sm text-gray-700 mb-2"
-                        >
-                          {sentence.trim().endsWith(".")
-                            ? sentence.trim()
-                            : `${sentence.trim()}.`}
-                        </li>
-                      ))}
-                  </ul>
-                </div>
-              </div>
-            )
-          )}
-        </div>
       </section>
 
-      {isLoadingVideos ? (
-        <div className="flex justify-center items-center w-full">
+      <div className="my-10 max-w-full flex justify-center items-center">
+        {isLoading ? (
           <img
             src={loader}
             alt="Loading..."
             className="w-20 h-20 object-contain"
           />
-        </div>
-      ) : (
-        showRecommendedVideos && (
-          <section
-            className="relative w-full overflow-hidden px-5"
-            style={{ paddingTop: `${summaryHeight + 10}px` }}
-          >
-            <h2 className="font-satoshi font-bold text-gray-600 text-xl text-center mb-4">
-              Suggested <span className="blue_gradient">Videos</span>
-            </h2>
-            <div
-              className="flex overflow-x-auto space-x-4 pb-4"
-              style={{
-                position: "relative",
-                width: "calc(100% - 40px)",
-                paddingLeft: "20px",
-                paddingRight: "20px",
-              }}
-            >
-              <div className="flex-shrink-0 w-60 h-40 bg-gray-200 rounded-lg flex flex-col justify-center items-center mr-4">
+        ) : (
+          <>
+            {lectureNotes && (
+              <>
+                <section className="relative w-full overflow-hidden px-5">
+                  <h2 className="font-satoshi font-bold text-gray-600 text-xl text-center mb-4">
+                    Lecture <span className="blue_gradient">Notes</span>
+                  </h2>
+                  <div
+                    className=" w-full"  
+                    dangerouslySetInnerHTML={{ __html: lectureNotes }}
+                  ></div>
+                </section>
+              </>
+            )}
+          </>
+        )}
+      </div>
+
+      {!isLoading && suggestedVideos.length > 0 && (
+        <section className="relative w-full overflow-hidden px-5">
+          <h2 className="font-satoshi font-bold text-gray-600 text-xl text-center mb-4">
+            Suggested <span className="blue_gradient">Videos</span>
+          </h2>
+          <div className="flex overflow-x-auto space-x-4 pb-4">
+            {suggestedVideos.suggestions.map((video, index) => (
+              <div
+                key={index}
+                className="flex-shrink-0 w-60 h-40 bg-gray-200 rounded-lg flex flex-col justify-center items-center mr-4"
+              >
                 <img
-                  src="path_to_dummy_video_thumbnail_1.jpg"
-                  alt="Dummy Video 1"
+                  src={video.thumbnail}
+                  alt={video.title}
                   className="w-full h-32 rounded-t-lg"
                 />
                 <p className="font-satoshi font-bold text-sm text-gray-600 mt-2">
-                  Dummy Video Title 1
+                  {video.title}
                 </p>
               </div>
-              <div className="flex-shrink-0 w-60 h-40 bg-gray-200 rounded-lg flex flex-col justify-center items-center mr-4">
-                <img
-                  src="path_to_dummy_video_thumbnail_2.jpg"
-                  alt="Dummy Video 2"
-                  className="w-full h-32 rounded-t-lg"
-                />
-                <p className="font-satoshi font-bold text-sm text-gray-600 mt-2">
-                  Dummy Video Title 2
-                </p>
-              </div>
-              <div className="flex-shrink-0 w-60 h-40 bg-gray-200 rounded-lg flex flex-col justify-center items-center mr-4">
-                <img
-                  src="path_to_dummy_video_thumbnail_3.jpg"
-                  alt="Dummy Video 3"
-                  className="w-full h-32 rounded-t-lg"
-                />
-                <p className="font-satoshi font-bold text-sm text-gray-600 mt-2">
-                  Dummy Video Title 3
-                </p>
-              </div>
-              <div className="flex-shrink-0 w-60 h-40 bg-gray-200 rounded-lg flex flex-col justify-center items-center mr-4">
-                <img
-                  src="path_to_dummy_video_thumbnail_4.jpg"
-                  alt="Dummy Video 4"
-                  className="w-full h-32 rounded-t-lg"
-                />
-                <p className="font-satoshi font-bold text-sm text-gray-600 mt-2">
-                  Dummy Video Title 4
-                </p>
-              </div>
-            </div>
-          </section>
-        )
+            ))}
+          </div>
+        </section>
       )}
     </>
   );
