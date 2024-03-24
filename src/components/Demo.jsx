@@ -11,6 +11,9 @@ const Demo = () => {
   const [allArticles, setAllArticles] = useState([]);
   const [showRecommendedVideos, setShowRecommendedVideos] = useState(false);
   const [summaryHeight, setSummaryHeight] = useState(0);
+  const [isSummaryLoaded, setIsSummaryLoaded] = useState(false);
+  const [isLoadingVideos, setIsLoadingVideos] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   const summaryRef = useRef(null);
   const lectureNotesRef = useRef(null);
@@ -21,7 +24,6 @@ const Demo = () => {
     }
   }, [article.summary]);
 
-  const [isSummaryLoaded, setIsSummaryLoaded] = useState(false);
   const [getSummary, { error, isFetching }] = useLazyGetSummaryQuery();
   const [copied, setCopied] = useState("");
 
@@ -35,31 +37,47 @@ const Demo = () => {
     }
   }, []);
 
+  const simulateVideoLoading = () => {
+    return new Promise((resolve) => setTimeout(resolve, 3000)); // 3 seconds timeout
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setShowRecommendedVideos(true);
+    setIsLoading(true); // Start the single loading animation for the entire operation
 
-    const { data } = await getSummary({ articleUrl: article.url });
+    try {
+      // Create a promise for the summary data fetching
+      const summaryPromise = getSummary({ articleUrl: article.url }).unwrap();
+      // Create a promise for the timeout to simulate video loading
+      const timeoutPromise = simulateVideoLoading();
 
-    if (data?.summary) {
-      const newArticle = { ...article, summary: data.summary };
+      // Use Promise.all to wait for both promises to resolve
+      const [summaryData] = await Promise.all([summaryPromise, timeoutPromise]);
 
-      const updatedAllArticles = [newArticle, ...allArticles];
+      // Process the summary data
+      if (summaryData?.summary) {
+        const newArticle = { ...article, summary: summaryData.summary };
+        const updatedAllArticles = [newArticle, ...allArticles];
 
-      setArticle(newArticle);
-      setAllArticles(updatedAllArticles);
+        setArticle(newArticle);
+        setAllArticles(updatedAllArticles);
+        localStorage.setItem("articles", JSON.stringify(updatedAllArticles));
+      }
 
-      localStorage.setItem("articles", JSON.stringify(updatedAllArticles));
-      console.log(newArticle);
-      setIsSummaryLoaded(true);
+      // After both promises have resolved, update the states to show content
+      setShowRecommendedVideos(true); // Show the recommended videos
+    } catch (error) {
+      console.error("An error occurred:", error);
+      // Handle any errors here
+    } finally {
+      setIsLoading(false); // Stop the loading animation for the entire operation
     }
   };
-
+  
   useEffect(() => {
     if (isSummaryLoaded && lectureNotesRef.current) {
       lectureNotesRef.current.scrollIntoView({ behavior: "smooth" });
-      setIsSummaryLoaded(false); // Reset the flag after scrolling
+      setIsSummaryLoaded(false);
     }
   }, [isSummaryLoaded]);
 
@@ -155,37 +173,75 @@ const Demo = () => {
         </div>
       </section>
 
-      {showRecommendedVideos && (
-        <section
-          className="relative w-full overflow-hidden px-5" // Apply horizontal padding to the section
-          style={{ paddingTop: `${summaryHeight + 10}px` }}
-        >
-          <h2 className="font-satoshi font-bold text-gray-600 text-xl text-center mb-4">
-            Recommended <span className="blue_gradient">Videos</span>
-          </h2>
-          <div
-            className="flex overflow-x-auto space-x-4 pb-4"
-            style={{
-              position: "relative", // Change to relative if absolute positioning is not necessary
-              width: "calc(100% - 40px)", // Adjust width based on the parent's padding
-              paddingLeft: "20px", // Match the parent's horizontal padding
-              paddingRight: "20px", // Match the parent's horizontal padding
-            }}
+      {isLoadingVideos ? (
+        <div className="flex justify-center items-center w-full">
+          <img
+            src={loader}
+            alt="Loading..."
+            className="w-20 h-20 object-contain"
+          />
+        </div>
+      ) : (
+        showRecommendedVideos && (
+          <section
+            className="relative w-full overflow-hidden px-5"
+            style={{ paddingTop: `${summaryHeight + 10}px` }}
           >
-            <div className="flex-shrink-0 w-60 h-40 bg-gray-200 rounded-lg flex justify-center items-center mr-4">
-              <span>Video 1</span>
+            <h2 className="font-satoshi font-bold text-gray-600 text-xl text-center mb-4">
+              Suggested <span className="blue_gradient">Videos</span>
+            </h2>
+            <div
+              className="flex overflow-x-auto space-x-4 pb-4"
+              style={{
+                position: "relative",
+                width: "calc(100% - 40px)",
+                paddingLeft: "20px",
+                paddingRight: "20px",
+              }}
+            >
+              <div className="flex-shrink-0 w-60 h-40 bg-gray-200 rounded-lg flex flex-col justify-center items-center mr-4">
+                <img
+                  src="path_to_dummy_video_thumbnail_1.jpg"
+                  alt="Dummy Video 1"
+                  className="w-full h-32 rounded-t-lg"
+                />
+                <p className="font-satoshi font-bold text-sm text-gray-600 mt-2">
+                  Dummy Video Title 1
+                </p>
+              </div>
+              <div className="flex-shrink-0 w-60 h-40 bg-gray-200 rounded-lg flex flex-col justify-center items-center mr-4">
+                <img
+                  src="path_to_dummy_video_thumbnail_2.jpg"
+                  alt="Dummy Video 2"
+                  className="w-full h-32 rounded-t-lg"
+                />
+                <p className="font-satoshi font-bold text-sm text-gray-600 mt-2">
+                  Dummy Video Title 2
+                </p>
+              </div>
+              <div className="flex-shrink-0 w-60 h-40 bg-gray-200 rounded-lg flex flex-col justify-center items-center mr-4">
+                <img
+                  src="path_to_dummy_video_thumbnail_3.jpg"
+                  alt="Dummy Video 3"
+                  className="w-full h-32 rounded-t-lg"
+                />
+                <p className="font-satoshi font-bold text-sm text-gray-600 mt-2">
+                  Dummy Video Title 3
+                </p>
+              </div>
+              <div className="flex-shrink-0 w-60 h-40 bg-gray-200 rounded-lg flex flex-col justify-center items-center mr-4">
+                <img
+                  src="path_to_dummy_video_thumbnail_4.jpg"
+                  alt="Dummy Video 4"
+                  className="w-full h-32 rounded-t-lg"
+                />
+                <p className="font-satoshi font-bold text-sm text-gray-600 mt-2">
+                  Dummy Video Title 4
+                </p>
+              </div>
             </div>
-            <div className="flex-shrink-0 w-60 h-40 bg-gray-200 rounded-lg flex justify-center items-center mr-4">
-              <span>Video 2</span>
-            </div>
-            <div className="flex-shrink-0 w-60 h-40 bg-gray-200 rounded-lg flex justify-center items-center mr-4">
-              <span>Video 3</span>
-            </div>
-            <div className="flex-shrink-0 w-60 h-40 bg-gray-200 rounded-lg flex justify-center items-center mr-4">
-              <span>Video 4</span>
-            </div>
-          </div>
-        </section>
+          </section>
+        )
       )}
     </>
   );

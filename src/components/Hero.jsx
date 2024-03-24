@@ -6,13 +6,6 @@ const Hero = () => {
     <header className='w-full flex justify-center items-center flex-col'>
         <nav className='flex justify-between items-center w-full mb-10 pt-3'>
            <span className='w-28 object-contain kaizen-logo'>&nbsp;&nbsp;改善 <span className='orange_gradient'> KAIZEN</span></span>
-            <button
-                type="button"  
-                onClick={() => {}}  
-                className='black_btn'
-            >
-                Signup
-            </button>
         </nav>
 
         <h1 className='head_text'>
@@ -20,7 +13,7 @@ const Hero = () => {
             <span className='orange_gradient'>Magic</span>
         </h1>
         <h2 className='desc'>
-            Summarize and generate recommended videos based on the input videos
+        Transform lectures into magical experiences with notes and recommended videos, simplifying your learning journey
         </h2>
     </header>
   )
